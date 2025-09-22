@@ -236,3 +236,6 @@ def download_model(filename):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+# For Vercel
+application = app
