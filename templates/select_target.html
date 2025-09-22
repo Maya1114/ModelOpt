@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h3 class="mb-0">Dataset Uploaded Successfully</h3>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-success" role="alert">
+                    <strong>Dataset Info:</strong> {{ data_shape[0] }} rows, {{ data_shape[1] }} columns
+                </div>
+
+                <h5>Select Your Target Column</h5>
+                <p>Choose the column you want to predict (your target variable):</p>
+
+                <form action="{{ url_for('train') }}" method="post">
+                    <input type="hidden" name="filename" value="{{ filename }}">
+                    
+                    <div class="mb-3">
+                        <label for="target_column" class="form-label">Target Column</label>
+                        <select class="form-select" id="target_column" name="target_column" required>
+                            <option value="">Choose a column...</option>
+                            {% for column in columns %}
+                            <option value="{{ column }}">{{ column }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary me-md-2">Upload Different File</a>
+                        <button type="submit" class="btn btn-primary">Start Training</button>
+                    </div>
+                </form>
+
+                <hr class="my-4">
+                
+                <h6>Data Preview</h6>
+                <div class="table-responsive">
+                    {{ data_head|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('target_column').addEventListener('change', function() {
+    if (this.value) {
+        document.querySelector('button[type="submit"]').classList.remove('btn-secondary');
+        document.querySelector('button[type="submit"]').classList.add('btn-primary');
+    }
+});
+</script>
+{% endblock %}
