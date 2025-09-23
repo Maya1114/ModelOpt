@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <div class="row justify-content-center">
     <div class="col-md-10">
         <div class="card">
@@ -45,15 +46,23 @@
                                     {% if model_name == best_model %}
                                         <span class="badge bg-success ms-2">Best</span>
                                     {% endif %}
+                                    {% if result.best_params %}
+                                        <br><small class="text-muted">
+                                            Best params:
+                                            {% for param, value in result.best_params.items() %}
+                                                {{ param }}={{ value }}{% if not loop.last %}, {% endif %}
+                                            {% endfor %}
+                                        </small>
+                                    {% endif %}
                                 </td>
                                 <td>{{ "%.3f"|format(result.score) }}</td>
                                 <td>
                                     <div class="progress" style="height: 20px;">
-                                        <div class="progress-bar {% if model_name == best_model %}bg-success{% else %}bg-primary{% endif %}" 
-                                             role="progressbar" 
+                                        <div class="progress-bar {% if model_name == best_model %}bg-success{% else %}bg-primary{% endif %}"
+                                             role="progressbar"
                                              style="width: {{ result.score * 100 }}%"
-                                             aria-valuenow="{{ result.score * 100 }}" 
-                                             aria-valuemin="0" 
+                                             aria-valuenow="{{ result.score * 100 }}"
+                                             aria-valuemin="0"
                                              aria-valuemax="100">
                                             {{ "%.1f"|format(result.score * 100) }}%
                                         </div>
@@ -64,6 +73,134 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Model Performance Visualizations -->
+                {% if visualizations %}
+                <div class="mt-5">
+                    <h4 class="mb-4">📊 Performance Analysis</h4>
+
+                    <!-- Model Comparison Chart -->
+                    {% if visualizations.comparison %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Model Performance Comparison</h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="comparison-plot" style="width:100%;height:400px;"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Detailed Model Analysis -->
+                    <div class="row">
+                        <div class="col-12">
+                            <ul class="nav nav-tabs" id="modelTabs" role="tablist">
+                                {% for model_name in results.keys() %}
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link {% if loop.first %}active{% endif %}"
+                                            id="{{ model_name|replace(' ', '-')|lower }}-tab"
+                                            data-bs-toggle="tab"
+                                            data-bs-target="#{{ model_name|replace(' ', '-')|lower }}-content"
+                                            type="button" role="tab">
+                                        {{ model_name }}
+                                        {% if model_name == best_model %}<span class="badge bg-success ms-1">Best</span>{% endif %}
+                                    </button>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            <div class="tab-content" id="modelTabsContent">
+                                {% for model_name in results.keys() %}
+                                <div class="tab-pane fade {% if loop.first %}show active{% endif %}"
+                                     id="{{ model_name|replace(' ', '-')|lower }}-content"
+                                     role="tabpanel">
+                                    <div class="p-4">
+                                        <div class="row">
+                                            <!-- Learning Curve -->
+                                            {% if visualizations[model_name].learning_curve %}
+                                            <div class="col-md-6 mb-4">
+                                                <div class="card">
+                                                    <div class="card-header">
+                                                        <h6 class="mb-0">Learning Curve</h6>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div id="learning-curve-{{ model_name|replace(' ', '-')|lower }}" style="width:100%;height:400px;"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+
+                                            <!-- Feature Importance or Classification/Regression Specific -->
+                                            <div class="col-md-6 mb-4">
+                                                {% if visualizations[model_name].feature_importance %}
+                                                <div class="card">
+                                                    <div class="card-header">
+                                                        <h6 class="mb-0">Feature Importance</h6>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div id="feature-importance-{{ model_name|replace(' ', '-')|lower }}" style="width:100%;height:400px;"></div>
+                                                    </div>
+                                                </div>
+                                                {% elif is_classification and visualizations[model_name].confusion_matrix %}
+                                                <div class="card">
+                                                    <div class="card-header">
+                                                        <h6 class="mb-0">Confusion Matrix</h6>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div id="confusion-matrix-{{ model_name|replace(' ', '-')|lower }}" style="width:100%;height:400px;"></div>
+                                                    </div>
+                                                </div>
+                                                {% elif not is_classification and visualizations[model_name].residual_plot %}
+                                                <div class="card">
+                                                    <div class="card-header">
+                                                        <h6 class="mb-0">Regression Analysis</h6>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div id="residual-plot-{{ model_name|replace(' ', '-')|lower }}" style="width:100%;height:400px;"></div>
+                                                    </div>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <!-- Additional Analysis for Classification -->
+                                        {% if is_classification and visualizations[model_name].confusion_matrix and visualizations[model_name].feature_importance %}
+                                        <div class="row">
+                                            <div class="col-12 mb-4">
+                                                <div class="card">
+                                                    <div class="card-header">
+                                                        <h6 class="mb-0">Confusion Matrix</h6>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div id="confusion-matrix-full-{{ model_name|replace(' ', '-')|lower }}" style="width:100%;height:400px;"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+
+                                        <!-- Additional Analysis for Regression -->
+                                        {% if not is_classification and visualizations[model_name].residual_plot and visualizations[model_name].feature_importance %}
+                                        <div class="row">
+                                            <div class="col-12 mb-4">
+                                                <div class="card">
+                                                    <div class="card-header">
+                                                        <h6 class="mb-0">Regression Analysis</h6>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div id="residual-plot-full-{{ model_name|replace(' ', '-')|lower }}" style="width:100%;height:400px;"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
 
                 <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
                     <a href="{{ url_for('download_model', filename=model_filename) }}" 
@@ -89,4 +226,83 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if visualizations %}
+
+    // Model comparison plot
+    {% if visualizations.comparison %}
+    var comparisonData = {{ visualizations.comparison|safe }};
+    Plotly.newPlot('comparison-plot', comparisonData.data, comparisonData.layout, {responsive: true});
+    {% endif %}
+
+    // Individual model visualizations
+    {% for model_name in results.keys() %}
+    var modelKey = "{{ model_name|replace(' ', '-')|lower }}";
+
+    // Learning curve
+    {% if visualizations[model_name].learning_curve %}
+    var learningCurveData = {{ visualizations[model_name].learning_curve|safe }};
+    Plotly.newPlot('learning-curve-' + modelKey, learningCurveData.data, learningCurveData.layout, {responsive: true});
+    {% endif %}
+
+    // Feature importance
+    {% if visualizations[model_name].feature_importance %}
+    var featureImportanceData = {{ visualizations[model_name].feature_importance|safe }};
+    Plotly.newPlot('feature-importance-' + modelKey, featureImportanceData.data, featureImportanceData.layout, {responsive: true});
+    {% endif %}
+
+    {% if is_classification %}
+    // Confusion matrix
+    {% if visualizations[model_name].confusion_matrix %}
+    var confusionMatrixData = {{ visualizations[model_name].confusion_matrix|safe }};
+    Plotly.newPlot('confusion-matrix-' + modelKey, confusionMatrixData.data, confusionMatrixData.layout, {responsive: true});
+
+    // Full confusion matrix (if both feature importance and confusion matrix exist)
+    {% if visualizations[model_name].feature_importance %}
+    Plotly.newPlot('confusion-matrix-full-' + modelKey, confusionMatrixData.data, confusionMatrixData.layout, {responsive: true});
+    {% endif %}
+    {% endif %}
+
+    {% else %}
+    // Residual plot for regression
+    {% if visualizations[model_name].residual_plot %}
+    var residualPlotData = {{ visualizations[model_name].residual_plot|safe }};
+    Plotly.newPlot('residual-plot-' + modelKey, residualPlotData.data, residualPlotData.layout, {responsive: true});
+
+    // Full residual plot (if both feature importance and residual plot exist)
+    {% if visualizations[model_name].feature_importance %}
+    Plotly.newPlot('residual-plot-full-' + modelKey, residualPlotData.data, residualPlotData.layout, {responsive: true});
+    {% endif %}
+    {% endif %}
+    {% endif %}
+
+    {% endfor %}
+
+    // Handle tab switching for responsive charts
+    var triggerTabList = [].slice.call(document.querySelectorAll('#modelTabs button'))
+    triggerTabList.forEach(function (triggerEl) {
+        var tabTrigger = new bootstrap.Tab(triggerEl)
+
+        triggerEl.addEventListener('shown.bs.tab', function (event) {
+            // Trigger resize for all Plotly charts in the active tab
+            var target = event.target.getAttribute('data-bs-target');
+            var activePane = document.querySelector(target);
+            var charts = activePane.querySelectorAll('[id*="learning-curve-"], [id*="feature-importance-"], [id*="confusion-matrix-"], [id*="residual-plot-"]');
+
+            charts.forEach(function(chart) {
+                if (chart.id) {
+                    setTimeout(function() {
+                        Plotly.Plots.resize(chart.id);
+                    }, 100);
+                }
+            });
+        });
+    });
+
+    {% endif %}
+});
+</script>
+
 {% endblock %}

@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h3 class="mb-0">Data Exploration & Profiling</h3>
+                <small>Understanding your dataset before training models</small>
+            </div>
+            <div class="card-body">
+                <!-- Dataset Overview -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5>Dataset Overview</h5>
+                        <table class="table table-sm">
+                            <tr><td><strong>Shape:</strong></td><td>{{ profile.shape[0] }} rows × {{ profile.shape[1] }} columns</td></tr>
+                            <tr><td><strong>Memory Usage:</strong></td><td>{{ "%.2f"|format(profile.memory_usage) }} MB</td></tr>
+                            <tr><td><strong>Duplicate Rows:</strong></td><td>{{ profile.duplicate_rows }}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Data Types</h5>
+                        <table class="table table-sm">
+                            {% for dtype, count in profile.dtypes.items() %}
+                            <tr><td><strong>{{ dtype }}:</strong></td><td>{{ count }} columns</td></tr>
+                            {% endfor %}
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Missing Values Summary -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5>Missing Values</h5>
+                        {% set missing_cols = profile.missing_values.values()|select("gt", 0)|list %}
+                        {% if missing_cols|length > 0 %}
+                        <div class="alert alert-warning">
+                            <strong>{{ missing_cols|length }} columns have missing values:</strong>
+                            <ul class="mb-0">
+                                {% for col, missing_count in profile.missing_values.items() %}
+                                {% if missing_count > 0 %}
+                                <li>{{ col }}: {{ missing_count }} missing ({{ "%.1f"|format(missing_count / profile.shape[0] * 100) }}%)</li>
+                                {% endif %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-success">
+                            <strong>✓ No missing values detected!</strong>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Outliers Summary -->
+                {% if outliers_info %}
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5>Outlier Detection (IQR Method)</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Column</th>
+                                        <th>Outlier Count</th>
+                                        <th>Percentage</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for col, info in outliers_info.items() %}
+                                    <tr>
+                                        <td>{{ col }}</td>
+                                        <td>{{ info.count }}</td>
+                                        <td>{{ "%.2f"|format(info.percentage) }}%</td>
+                                        <td>
+                                            {% if info.percentage > 5 %}
+                                            <span class="badge bg-warning">High</span>
+                                            {% elif info.percentage > 1 %}
+                                            <span class="badge bg-secondary">Moderate</span>
+                                            {% else %}
+                                            <span class="badge bg-success">Low</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Navigation buttons -->
+                <div class="row mb-4">
+                    <div class="col-12 text-center">
+                        <a href="#" onclick="showSection('basic-stats')" class="btn btn-outline-primary me-2">Basic Statistics</a>
+                        <a href="#" onclick="showSection('distributions')" class="btn btn-outline-primary me-2">Distributions</a>
+                        <a href="#" onclick="showSection('correlations')" class="btn btn-outline-primary me-2">Correlations</a>
+                        <a href="#" onclick="showSection('outliers')" class="btn btn-outline-primary me-2">Outliers</a>
+                        <a href="#" onclick="showSection('data-sample')" class="btn btn-outline-primary">Data Sample</a>
+                    </div>
+                </div>
+
+                <!-- Basic Statistics Section -->
+                <div id="basic-stats" class="section-content" style="display: block;">
+                    <h5>Basic Statistics</h5>
+                    {% if profile.numeric_columns %}
+                    <h6>Numeric Features</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Feature</th>
+                                    <th>Count</th>
+                                    <th>Mean</th>
+                                    <th>Std</th>
+                                    <th>Min</th>
+                                    <th>25%</th>
+                                    <th>50%</th>
+                                    <th>75%</th>
+                                    <th>Max</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for col in profile.numeric_columns %}
+                                <tr>
+                                    <td><strong>{{ col }}</strong></td>
+                                    <td>{{ "%.0f"|format(profile.numeric_stats[col]['count']) }}</td>
+                                    <td>{{ "%.2f"|format(profile.numeric_stats[col]['mean']) }}</td>
+                                    <td>{{ "%.2f"|format(profile.numeric_stats[col]['std']) }}</td>
+                                    <td>{{ "%.2f"|format(profile.numeric_stats[col]['min']) }}</td>
+                                    <td>{{ "%.2f"|format(profile.numeric_stats[col]['25%']) }}</td>
+                                    <td>{{ "%.2f"|format(profile.numeric_stats[col]['50%']) }}</td>
+                                    <td>{{ "%.2f"|format(profile.numeric_stats[col]['75%']) }}</td>
+                                    <td>{{ "%.2f"|format(profile.numeric_stats[col]['max']) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+
+                    {% if profile.categorical_columns %}
+                    <h6>Categorical Features</h6>
+                    <div class="row">
+                        {% for col in profile.categorical_columns %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-header">
+                                    <strong>{{ col }}</strong>
+                                    <small class="text-muted">({{ profile.categorical_stats[col]['unique_count'] }} unique values)</small>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm">
+                                        {% for value, count in profile.categorical_stats[col]['top_values'].items() %}
+                                        <tr>
+                                            <td>{{ value }}</td>
+                                            <td>{{ count }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Distributions Section -->
+                <div id="distributions" class="section-content" style="display: none;">
+                    <h5>Feature Distributions</h5>
+                    {% if visualizations.distributions %}
+                    <div id="distributions-plot"></div>
+                    {% else %}
+                    <div class="alert alert-info">No numeric features available for distribution plots.</div>
+                    {% endif %}
+
+                    {% if visualizations.categorical %}
+                    <div id="categorical-plot"></div>
+                    {% endif %}
+                </div>
+
+                <!-- Correlations Section -->
+                <div id="correlations" class="section-content" style="display: none;">
+                    <h5>Feature Correlations</h5>
+                    {% if visualizations.correlation %}
+                    <div id="correlation-plot"></div>
+                    {% else %}
+                    <div class="alert alert-info">Need at least 2 numeric features for correlation analysis.</div>
+                    {% endif %}
+                </div>
+
+                <!-- Outliers Section -->
+                <div id="outliers" class="section-content" style="display: none;">
+                    <h5>Outlier Visualization</h5>
+                    {% if visualizations.outliers %}
+                    <div id="outliers-plot"></div>
+                    {% else %}
+                    <div class="alert alert-info">No numeric features available for outlier analysis.</div>
+                    {% endif %}
+                </div>
+
+                <!-- Data Sample Section -->
+                <div id="data-sample" class="section-content" style="display: none;">
+                    <h5>Data Sample (First 10 Rows)</h5>
+                    <div class="table-responsive">
+                        {{ data_sample|safe }}
+                    </div>
+                </div>
+
+                <!-- Missing Values Heatmap -->
+                {% if visualizations.missing_heatmap %}
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <h5>Missing Values Pattern</h5>
+                        <div id="missing-heatmap"></div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Proceed to Training -->
+                <div class="row mt-5">
+                    <div class="col-12 text-center">
+                        <div class="alert alert-success">
+                            <h5>Data exploration complete!</h5>
+                            <p>Review the insights above, then proceed to model training.</p>
+                            <a href="{{ url_for('upload_file') }}" class="btn btn-secondary me-2">Upload Different Dataset</a>
+                            <button class="btn btn-success btn-lg" onclick="proceedToTraining()">Select Target & Train Models</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plotly.js -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<script>
+    // Navigation between sections
+    function showSection(sectionId) {
+        // Hide all sections
+        const sections = document.querySelectorAll('.section-content');
+        sections.forEach(section => section.style.display = 'none');
+
+        // Show selected section
+        document.getElementById(sectionId).style.display = 'block';
+    }
+
+    // Render plots when sections are shown
+    function renderPlots() {
+        {% if visualizations.missing_heatmap %}
+        Plotly.newPlot('missing-heatmap', JSON.parse('{{ visualizations.missing_heatmap|safe }}'));
+        {% endif %}
+
+        {% if visualizations.distributions %}
+        Plotly.newPlot('distributions-plot', JSON.parse('{{ visualizations.distributions|safe }}'));
+        {% endif %}
+
+        {% if visualizations.categorical %}
+        Plotly.newPlot('categorical-plot', JSON.parse('{{ visualizations.categorical|safe }}'));
+        {% endif %}
+
+        {% if visualizations.correlation %}
+        Plotly.newPlot('correlation-plot', JSON.parse('{{ visualizations.correlation|safe }}'));
+        {% endif %}
+
+        {% if visualizations.outliers %}
+        Plotly.newPlot('outliers-plot', JSON.parse('{{ visualizations.outliers|safe }}'));
+        {% endif %}
+    }
+
+    function proceedToTraining() {
+        // Redirect to select target page
+        window.location.href = "{{ url_for('select_target', filename=filename) }}";
+    }
+
+    // Render plots when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        renderPlots();
+    });
+</script>
+{% endblock %}
